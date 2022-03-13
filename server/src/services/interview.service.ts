@@ -34,10 +34,10 @@ export class InterviewService {
       await checkerRepository.delete({ courseTaskId });
     }
 
-    let registeredStudentsIds: number[] | undefined = undefined;
+    let registeredStudentsIds: { id: number; githubId: string }[] | undefined = undefined;
     if (options.registrationEnabled) {
       const student = await this.interviewRepository.findRegisteredStudents(this.courseId, courseTaskId);
-      registeredStudentsIds = student.map(student => student.id);
+      registeredStudentsIds = student.map(student => ({ id: student.id, githubId: student.githubId }));
     }
 
     const existingPairs = await checkerRepository.find({ courseTaskId });
@@ -45,7 +45,16 @@ export class InterviewService {
     const { mentors: crossMentors } = crossMentorService.distribute(mentors, existingPairs, registeredStudentsIds);
 
     const taskCheckPairs = crossMentors
-      .map(stm => stm.students?.map(s => ({ courseTaskId, mentorId: stm.id, studentId: s.id })) ?? [])
+      .map(
+        stm =>
+          stm.students?.map(s => ({
+            courseTaskId,
+            mentorId: stm.id,
+            studentId: s.id,
+            mentorGithubId: stm.githubId,
+            studentGithubId: s.githubId,
+          })) ?? [],
+      )
       .reduce((acc, student) => acc.concat(student), []);
 
     if (taskCheckPairs.length > 0) {

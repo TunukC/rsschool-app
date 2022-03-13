@@ -196,7 +196,7 @@ function transformMentor(record: Mentor): MentorBasic {
     cityName: record.user.cityName ?? 'Unknown',
     countryName: record.user.countryName ?? 'Unknown',
     isActive: !record.isExpelled,
-    students: record.students?.map(s => ({ id: s.id })) ?? [],
+    students: record.students?.map(s => ({ id: s.id, githubId: s.user.githubId })) ?? [],
   };
 }
 

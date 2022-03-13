@@ -2,7 +2,7 @@ import { StatusCodes } from 'http-status-codes';
 import Router from '@koa/router';
 import { getCustomRepository } from 'typeorm';
 import { ILogger } from '../../logger';
-import { courseService, InterviewService } from '../../services';
+import { courseService, InterviewService, notificationService } from '../../services';
 import { setResponse } from '../utils';
 import { InterviewRepository } from '../../repositories/interview.repository';
 import { StageInterviewRepository } from '../../repositories/stageInterview.repository';
@@ -77,7 +77,7 @@ export const createInterviewStudent = (_: ILogger) => async (ctx: Router.RouterC
     const result = await repository.addStudent(courseId, Number(courseTaskId), student.id);
     setResponse(ctx, StatusCodes.OK, result);
   } catch (e) {
-    setResponse(ctx, StatusCodes.BAD_REQUEST, { message: e.message });
+    setResponse(ctx, StatusCodes.BAD_REQUEST, { message: (e as Error).message });
   }
 };
 
@@ -93,18 +93,50 @@ export const getInterviewStudent = (_: ILogger) => async (ctx: Router.RouterCont
     const result = await repository.findRegisteredStudent(courseId, Number(courseTaskId), student.id);
     setResponse(ctx, StatusCodes.OK, result);
   } catch (e) {
-    setResponse(ctx, StatusCodes.BAD_REQUEST, { message: e.message });
+    setResponse(ctx, StatusCodes.BAD_REQUEST, { message: (e as Error).message });
   }
 };
 
-export const createInterview = (_: ILogger) => async (ctx: Router.RouterContext) => {
+export const createInterview = (logger: ILogger) => async (ctx: Router.RouterContext) => {
   const { courseId, courseTaskId, studentGithubId, githubId: interviewerGithubId } = ctx.params;
   const interviewService = new InterviewService(courseId);
   const result = await interviewService.createInterview(courseTaskId, interviewerGithubId, studentGithubId);
+
+  await sendInteviewerAssignedNotification(courseId, interviewerGithubId, studentGithubId, logger);
+
   setResponse(ctx, StatusCodes.OK, { id: result?.id });
 };
 
-export const createInterviews = (_: ILogger) => async (ctx: Router.RouterContext) => {
+async function sendInteviewerAssignedNotification(
+  courseId: number,
+  interviewerGithubId: string,
+  studentGithubId: string,
+  logger: ILogger,
+) {
+  if (!interviewerGithubId || !studentGithubId) {
+    logger.info(`sendInteviewerAssignedNotification: missing githubId`);
+    return;
+  }
+  try {
+    const [interviewer, student] = await Promise.all([
+      courseService.queryMentorByGithubId(courseId, interviewerGithubId),
+      courseService.queryStudentByGithubId(courseId, studentGithubId),
+    ]);
+    if (!student || !interviewer) return;
+
+    await notificationService.sendNotificationV2({
+      userId: student.userId,
+      notificationId: 'interviewerAssigned',
+      data: {
+        interviewer,
+      },
+    });
+  } catch (e) {
+    logger.error(`sendInteviewerAssignedNotification: ${(e as Error).message}`);
+  }
+}
+
+export const createInterviews = (logger: ILogger) => async (ctx: Router.RouterContext) => {
   const courseId: number = Number(ctx.params.courseId);
   const courseTaskId: number = Number(ctx.params.courseTaskId);
   try {
@@ -121,9 +153,15 @@ export const createInterviews = (_: ILogger) => async (ctx: Router.RouterContext
       setResponse(ctx, StatusCodes.BAD_REQUEST);
       return;
     }
+    await Promise.all(
+      result.map(
+        async pair =>
+          await sendInteviewerAssignedNotification(courseId, pair.mentorGithubId, pair.studentGithubId, logger),
+      ),
+    );
     setResponse(ctx, StatusCodes.OK, result);
   } catch (e) {
-    setResponse(ctx, StatusCodes.BAD_REQUEST, { message: e.message });
+    setResponse(ctx, StatusCodes.BAD_REQUEST, { message: (e as Error).message });
   }
 };
 
@@ -136,6 +174,6 @@ export const cancelInterview = (_: ILogger) => async (ctx: Router.RouterContext)
     await interviewService.cancelInterviewPair(pairId);
     setResponse(ctx, StatusCodes.OK, {});
   } catch (e) {
-    setResponse(ctx, StatusCodes.BAD_REQUEST, { message: e.message });
+    setResponse(ctx, StatusCodes.BAD_REQUEST, { message: (e as Error).message });
   }
 };

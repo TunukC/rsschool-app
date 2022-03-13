@@ -1,6 +1,6 @@
 import { shuffleRec } from './shuffle';
 
-export type CrossMentor = { id: number; students: { id: number }[] | null };
+export type CrossMentor = { id: number; githubId: string; students: { id: number; githubId: string }[] | null };
 
 export class CrossMentorDistributionService {
   constructor(private defaultMaxStudents = 1) {}
@@ -8,13 +8,13 @@ export class CrossMentorDistributionService {
   public distribute(
     mentors: CrossMentor[],
     existingPairs: { studentId: number; mentorId: number }[],
-    registeredStudentsIds?: number[],
+    registeredStudents?: { id: number; githubId: string }[],
   ) {
     let students = mentors
       .map(m => m.students ?? [])
-      .reduce((acc, v) => acc.concat(v), [] as { id: number }[])
+      .reduce((acc, v) => acc.concat(v), [] as { id: number; githubId: string }[])
       .filter(v => !existingPairs.find(p => p.studentId === v.id))
-      .filter(v => registeredStudentsIds?.includes(v.id) ?? true);
+      .filter(v => registeredStudents?.find(s => s.id === v.id) ?? true);
 
     const maxStudentsPerMentor = mentors.map(({ id, students }) => {
       const assignedCount = existingPairs.filter(p => p.mentorId === id).length;
@@ -24,12 +24,12 @@ export class CrossMentorDistributionService {
 
     const maxStudentsTotal = maxStudentsPerMentor.reduce((acc, m) => acc + m.maxStudents, 0);
 
-    if (students.length < maxStudentsTotal && registeredStudentsIds) {
+    if (students.length < maxStudentsTotal && registeredStudents) {
       students = students.concat(
-        registeredStudentsIds
-          .filter(id => !existingPairs.find(p => p.studentId === id) && !students.find(st => st.id === id))
+        registeredStudents
+          .filter(({ id }) => !existingPairs.find(p => p.studentId === id) && !students.find(st => st.id === id))
           .slice(0, maxStudentsTotal - students.length)
-          .map(id => ({ id })),
+          .map(record => record),
       );
     }
 

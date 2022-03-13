@@ -1,9 +1,9 @@
 import { createMentorStudentPairs } from '../mentors';
 
 const mentors = [
-  { id: 1, maxStudentsLimit: 2, students: [] },
-  { id: 2, maxStudentsLimit: 1, students: [{ id: 99 }] },
-  { id: 3, maxStudentsLimit: 1, students: [] },
+  { id: 1, maxStudentsLimit: 2, students: [], githubId: '1' },
+  { id: 2, maxStudentsLimit: 1, students: [{ id: 99, githubId: '11' }], githubId: '2' },
+  { id: 3, maxStudentsLimit: 1, students: [], githubId: '3' },
 ];
 
 const students = [

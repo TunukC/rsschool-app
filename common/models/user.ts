@@ -8,7 +8,7 @@ export interface MentorBasic extends UserBasic {
   isActive: boolean;
   cityName: string;
   countryName: string;
-  students: (StudentBasic | { id: number })[];
+  students: (StudentBasic | { id: number; githubId: string })[];
 }
 
 export interface StudentBasic extends UserBasic {
